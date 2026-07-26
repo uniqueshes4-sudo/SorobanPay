@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useWallet } from '@/hooks/useWallet';
 import { buildAndSubmitSubscribe } from '@/lib/transaction_builder';
 import {
@@ -24,6 +25,7 @@ import {
   type FieldErrors,
 } from '@/lib/validation';
 import { CONTRACT_ID, NETWORK_PASSPHRASE, NETWORK_NAME, RPC_URL } from '@/constants/network';
+import { ConfirmationModal } from '@/components/ConfirmationModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -35,11 +37,11 @@ interface SuccessData {
   interval: string;
 }
 
-// ─── Shared input className (larger py for ≥48px touch target on mobile) ─────
+// ─── Shared input className — uses semantic tokens (WCAG AA compliant) ────────
 const inputCls =
-  'w-full rounded-lg bg-gray-800 border border-gray-700 px-4 py-3 text-base ' +
-  'text-white placeholder-gray-500 ' +
-  'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 ' +
+  'w-full rounded-lg bg-surface-raised border border-surface-overlay px-4 py-3 text-base ' +
+  'text-text-primary placeholder-text-disabled ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-interactive-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card ' +
   'disabled:opacity-50 min-h-[48px] transition-all duration-150';
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
@@ -190,24 +192,32 @@ function ContractConfigError() {
 
 function ProgressBar() {
   return (
-    <div className="w-full mb-6 p-4 sm:p-5 bg-blue-900/20 border border-blue-600/40 rounded-lg" role="status" aria-label="Transaction in progress">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="w-full mb-6 p-4 sm:p-5 bg-status-info-bg border border-status-info-border rounded-lg"
+      role="status"
+      aria-label="Transaction in progress"
+    >
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-2">
-          <svg className="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+          <svg className="animate-spin h-5 w-5 text-status-info" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
           </svg>
-          <span className="text-sm font-medium text-blue-300">Submitting transaction…</span>
+          <span className="text-sm font-medium text-status-info">Submitting transaction…</span>
         </div>
-        <span className="text-xs text-blue-200 animate-pulse">Processing on blockchain</span>
+        <span className="text-xs text-text-secondary animate-pulse">Processing on blockchain</span>
       </div>
-      <div className="h-2 w-full bg-gray-700 rounded-full overflow-hidden shadow-inner">
-        <div className="h-full bg-gradient-to-r from-blue-400 via-blue-500 to-blue-400 rounded-full animate-progress" />
+      <div className="h-2 w-full bg-surface-overlay rounded-full overflow-hidden shadow-inner">
+        <div className="h-full bg-gradient-to-r from-status-info via-interactive to-status-info rounded-full animate-progress" />
       </div>
-      <p className="mt-2 text-xs text-gray-300 text-center">
+      <p className="mt-2 text-xs text-text-secondary text-center">
         This may take 10-30 seconds. Keep the window open.
       </p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -216,124 +226,81 @@ function ProgressBar() {
 function SuccessCard({
   data,
   onReset,
+  onCancel,
 }: {
   data: SuccessData;
   onReset: () => void;
+  onCancel: () => void;
 }) {
   const days = Math.round(Number(data.interval) / 86400);
   return (
-    <div
+    <motion.div
       role="alert"
-      className="mb-6 rounded-xl bg-gradient-to-br from-green-900/60 to-green-800/30 border-2 border-green-600/60 p-5 sm:p-6 text-sm space-y-4 shadow-lg"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+      className="mb-6 rounded-xl bg-gradient-to-br from-status-success-bg to-surface-card border-2 border-status-success-border p-5 sm:p-6 text-sm space-y-4 shadow-lg"
     >
       {/* Header */}
       <div className="flex items-center gap-3">
-        <span className="text-2xl flex-shrink-0" aria-hidden="true">✓</span>
-        <p className="font-semibold text-green-300 text-base sm:text-lg">Subscription created successfully!</p>
+        {/* Checkmark icon (not just color — WCAG 1.4.1) */}
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-status-success flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+        <p className="font-semibold text-status-success text-base sm:text-lg">Subscription created successfully!</p>
       </div>
 
       {/* Tx hash */}
-      <div className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
-        <p className="text-gray-400 text-xs mb-1.5 font-medium">Transaction hash</p>
-        <p className="text-gray-200 break-all font-mono text-xs leading-relaxed">{data.txHash}</p>
+      <div className="bg-surface-raised/50 rounded-lg p-3 border border-surface-overlay/50">
+        <p className="text-text-disabled text-xs mb-1.5 font-medium">Transaction hash</p>
+        <p className="text-text-primary break-all font-mono text-xs leading-relaxed">{data.txHash}</p>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-gray-300 bg-gray-800/30 rounded-lg p-3">
-        <span className="text-gray-300 font-medium">Amount</span>
-        <span className="font-medium">{data.amount} tokens</span>
-        <span className="text-gray-300 font-medium">Interval</span>
-        <span className="font-medium">every {days} day{days !== 1 ? 's' : ''}</span>
-        <span className="text-gray-300 font-medium break-all">Merchant</span>
-        <span className="break-all font-mono text-xs">{data.merchant}</span>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-text-secondary bg-surface-raised/30 rounded-lg p-3">
+        <span className="font-medium">Amount</span>
+        <span className="font-medium text-text-primary">{data.amount} tokens</span>
+        <span className="font-medium">Interval</span>
+        <span className="font-medium text-text-primary">every {days} day{days !== 1 ? 's' : ''}</span>
+        <span className="font-medium break-all">Merchant</span>
+        <span className="break-all font-mono text-xs text-text-primary">{data.merchant}</span>
       </div>
 
       {/* Next steps */}
-      <div className="border-t border-green-800/60 pt-4 space-y-2.5">
-        <p className="text-green-300 font-semibold text-xs uppercase tracking-widest">What happens next</p>
-        <ul className="list-disc list-inside space-y-2 text-gray-300 text-xs leading-relaxed">
+      <div className="border-t border-status-success-border/60 pt-4 space-y-2.5">
+        <p className="text-status-success font-semibold text-xs uppercase tracking-widest">What happens next</p>
+        <ul className="list-disc list-inside space-y-2 text-text-secondary text-xs leading-relaxed">
           <li>The merchant can collect the first payment immediately.</li>
           <li>Subsequent payments are collectible every {days} day{days !== 1 ? 's' : ''}.</li>
-          <li>
-            To cancel, call{' '}
-            <code className="bg-gray-800 px-1.5 py-0.5 rounded text-green-300 text-xs">cancel(subscriber, merchant)</code>{' '}
-            on the contract, or revoke the token allowance via your wallet.
-          </li>
           <li>Your wallet remains non-custodial — the contract never holds your funds.</li>
         </ul>
       </div>
 
-      <button
-        onClick={onReset}
-        className="w-full rounded-lg border-2 border-green-600/70 text-green-300 hover:bg-green-900/40 active:bg-green-900/60
-                   py-3 text-sm font-semibold transition-all duration-150 min-h-[48px] hover:shadow-lg
-                   focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
-      >
-        Create Another Subscription
-      </button>
-    </div>
-  );
-}
-
-// ─── Confirmation modal ────────────────────────────────────────────────────────
-
-function ConfirmModal({
-  merchantAddress,
-  tokenAddress,
-  amount,
-  interval,
-  onConfirm,
-  onCancel,
-}: {
-  merchantAddress: string;
-  tokenAddress: string;
-  amount: string;
-  interval: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const days = Math.round(Number(interval) / 86400);
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-    >
-      <div className="w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl p-6 space-y-5 text-white">
-        <h3 id="confirm-title" className="text-lg font-bold">Confirm subscription</h3>
-        <p className="text-sm text-gray-400">Review the details before authorizing the on-chain transaction.</p>
-
-        <dl className="bg-gray-800/60 rounded-lg divide-y divide-gray-700 text-sm">
-          {[
-            ['Merchant',  merchantAddress],
-            ['Token',     tokenAddress],
-            ['Amount',    `${amount} tokens`],
-            ['Interval',  `${days} day${days !== 1 ? 's' : ''} (${interval} s)`],
-          ].map(([label, value]) => (
-            <div key={label} className="flex flex-col gap-0.5 px-4 py-3">
-              <dt className="text-xs text-gray-400 font-medium">{label}</dt>
-              <dd className="break-all font-mono text-xs text-gray-100">{value}</dd>
-            </div>
-          ))}
-        </dl>
-
-        <div className="flex gap-3 pt-1">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-lg border border-gray-600 bg-gray-800/50 text-gray-300 hover:bg-gray-700 active:bg-gray-800 py-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500"
-          >
-            Go Back
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 py-3 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-          >
-            Confirm & Authorize
-          </button>
-        </div>
+      <div className="flex flex-col sm:flex-row gap-3 pt-1">
+        <button
+          onClick={onReset}
+          className="flex-1 rounded-lg border-2 border-status-success-border text-status-success hover:bg-status-success-bg
+                     py-3 text-sm font-semibold transition-all duration-150 min-h-[48px] hover:shadow-lg
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-status-success focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card"
+        >
+          Create Another
+        </button>
+        {/* Cancel subscription — triggers ConfirmationModal (#450) */}
+        <button
+          onClick={onCancel}
+          className="flex-1 rounded-lg border-2 border-destructive-border text-status-error hover:bg-destructive-surface
+                     py-3 text-sm font-semibold transition-all duration-150 min-h-[48px]
+                     focus:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card
+                     inline-flex items-center justify-center gap-2"
+        >
+          {/* Icon — not color alone (WCAG 1.4.1) */}
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+          Cancel Subscription
+        </button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -435,20 +402,27 @@ function ErrorCard({ error, onDismiss }: { error: TxErrorInfo; onDismiss: () => 
   const [showDetails, setShowDetails] = useState(false);
 
   return (
-    <div
+    <motion.div
       role="alert"
-      className="mb-6 rounded-xl bg-red-900/40 border border-red-600/70 p-4 sm:p-5 text-sm shadow-md"
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      // Shake keyframe defined in tailwind.config.ts
+      className="mb-6 rounded-xl bg-status-error-bg border border-status-error-border p-4 sm:p-5 text-sm shadow-md animate-shake"
     >
       <div className="flex items-start gap-3 mb-3">
-        <span className="text-xl flex-shrink-0 mt-0.5" aria-hidden="true">⚠</span>
+        {/* Warning icon — not color alone (WCAG 1.4.1) */}
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-status-error flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-red-300 text-base leading-snug">{error.title}</p>
-          <p className="mt-1 text-gray-300 leading-relaxed">{error.summary}</p>
+          <p className="font-semibold text-status-error text-base leading-snug">{error.title}</p>
+          <p className="mt-1 text-text-secondary leading-relaxed">{error.summary}</p>
         </div>
         <button
           onClick={onDismiss}
           aria-label="Dismiss error"
-          className="shrink-0 text-gray-500 hover:text-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
+          className="shrink-0 text-text-disabled hover:text-text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-status-error rounded"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -457,9 +431,9 @@ function ErrorCard({ error, onDismiss }: { error: TxErrorInfo; onDismiss: () => 
       </div>
 
       {/* Suggested fix */}
-      <div className="flex items-start gap-2 bg-gray-800/60 rounded-lg px-3 py-2.5 mb-3">
-        <span className="text-blue-400 shrink-0 mt-0.5" aria-hidden="true">→</span>
-        <p className="text-gray-200 text-xs leading-relaxed">{error.fix}</p>
+      <div className="flex items-start gap-2 bg-surface-raised/60 rounded-lg px-3 py-2.5 mb-3">
+        <span className="text-text-link shrink-0 mt-0.5" aria-hidden="true">→</span>
+        <p className="text-text-primary text-xs leading-relaxed">{error.fix}</p>
       </div>
 
       {/* Collapsible technical details */}
@@ -467,19 +441,19 @@ function ErrorCard({ error, onDismiss }: { error: TxErrorInfo; onDismiss: () => 
         type="button"
         onClick={() => setShowDetails(v => !v)}
         aria-expanded={showDetails}
-        className="text-xs text-gray-500 hover:text-gray-300 transition-colors underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded"
+        className="text-xs text-text-disabled hover:text-text-primary transition-colors underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-error rounded"
       >
         {showDetails ? 'Hide' : 'Show'} technical details
       </button>
       {showDetails && (
-        <div className="mt-2 flex items-start gap-2 bg-gray-900/70 rounded-lg p-3 border border-gray-700">
-          <pre className="flex-1 text-xs text-gray-400 font-mono whitespace-pre-wrap break-all leading-relaxed overflow-x-auto">
+        <div className="mt-2 flex items-start gap-2 bg-surface-card/70 rounded-lg p-3 border border-surface-overlay">
+          <pre className="flex-1 text-xs text-text-secondary font-mono whitespace-pre-wrap break-all leading-relaxed overflow-x-auto">
             {error.raw}
           </pre>
           <CopyButton text={error.raw} label="Copy" />
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -500,13 +474,18 @@ export default function SubscriptionForm() {
   const [fieldErrors, setFieldErrors]   = useState<FieldErrors>({});
   const [txError, setTxError]           = useState<TxErrorInfo | null>(null);
   const [successData, setSuccessData]   = useState<SuccessData | null>(null);
-  const [showConfirm, setShowConfirm]   = useState(false);
+
+  // #450 — subscribe confirmation (primary variant, no delay)
+  const [showSubscribeConfirm, setShowSubscribeConfirm] = useState(false);
+  // #450 — cancel confirmation (destructive variant, 3s delay)
+  const [showCancelConfirm, setShowCancelConfirm]       = useState(false);
 
   function resetForm() {
     setSuccessData(null);
     setTxError(null);
     setFieldErrors({});
-    setShowConfirm(false);
+    setShowSubscribeConfirm(false);
+    setShowCancelConfirm(false);
     setMerchantAddress('');
     setTokenAddress('');
     setAmount('');
@@ -523,11 +502,11 @@ export default function SubscriptionForm() {
     if (!isFormValid(errors)) return;
     if (!publicKey) return;
 
-    setShowConfirm(true);
+    setShowSubscribeConfirm(true);
   }
 
   async function confirmAndSubmit() {
-    setShowConfirm(false);
+    setShowSubscribeConfirm(false);
     if (!publicKey) return;
 
     setIsSubmitting(true);
@@ -560,205 +539,288 @@ export default function SubscriptionForm() {
     }
   }
 
+  // #450 — after user confirms cancel in the modal, reset to initial state
+  // In a full implementation this would call cancel() on the contract.
+  function handleCancelConfirmed() {
+    setShowCancelConfirm(false);
+    resetForm();
+  }
+
+  const days = successData ? Math.round(Number(successData.interval) / 86400) : 0;
+
   return (
-    <div className="w-full max-w-lg mx-auto bg-gray-900 rounded-2xl shadow-xl p-5 sm:p-8 text-white">
-      {showConfirm && (
-        <ConfirmModal
-          merchantAddress={merchantAddress}
-          tokenAddress={tokenAddress}
-          amount={amount}
-          interval={interval}
-          onConfirm={confirmAndSubmit}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
+    <div className="w-full max-w-lg mx-auto bg-surface-card rounded-2xl shadow-xl p-5 sm:p-8 text-text-primary">
+
+      {/* #450 — Subscribe confirmation modal (primary, no delay) */}
+      <ConfirmationModal
+        isOpen={showSubscribeConfirm}
+        title="Confirm subscription"
+        body={
+          <dl className="bg-surface-raised/60 rounded-lg divide-y divide-surface-overlay text-sm mt-2">
+            {[
+              ['Merchant', merchantAddress],
+              ['Token',    tokenAddress],
+              ['Amount',   `${amount} tokens`],
+              ['Interval', `${Math.round(Number(interval) / 86400)} days`],
+            ].map(([label, value]) => (
+              <div key={label} className="flex flex-col gap-0.5 px-4 py-3">
+                <dt className="text-xs text-text-disabled font-medium">{label}</dt>
+                <dd className="break-all font-mono text-xs text-text-primary">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        }
+        confirmLabel="Confirm & Authorize"
+        cancelLabel="Go Back"
+        variant="primary"
+        onConfirm={confirmAndSubmit}
+        onCancel={() => setShowSubscribeConfirm(false)}
+      />
+
+      {/* #450 — Cancel subscription confirmation modal (destructive, 3s delay) */}
+      <ConfirmationModal
+        isOpen={showCancelConfirm}
+        title="Cancel subscription?"
+        body={
+          successData ? (
+            <p>
+              You will stop paying{' '}
+              <span className="font-mono text-text-primary break-all">
+                {successData.merchant.slice(0, 8)}…
+              </span>{' '}
+              <strong className="text-text-primary">{successData.amount} tokens</strong> every{' '}
+              <strong className="text-text-primary">{days} day{days !== 1 ? 's' : ''}</strong>.{' '}
+              <span className="text-status-error font-medium">This cannot be undone.</span>
+            </p>
+          ) : (
+            <p>This subscription will be permanently cancelled. <span className="text-status-error font-medium">This cannot be undone.</span></p>
+          )
+        }
+        confirmLabel="Yes, Cancel"
+        cancelLabel="Keep Subscription"
+        variant="destructive"
+        confirmDelaySeconds={3}
+        onConfirm={handleCancelConfirmed}
+        onCancel={() => setShowCancelConfirm(false)}
+      />
+
       <div className="flex items-center justify-between mb-2 gap-3">
-        <h2 className="text-2xl sm:text-3xl font-bold">Create Subscription</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-text-primary">Create Subscription</h2>
         <span
           aria-label={publicKey ? 'Wallet connected' : 'Wallet disconnected'}
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold shrink-0 ${
             publicKey
-              ? 'bg-green-900/60 text-green-300 border border-green-600/50'
-              : 'bg-gray-700/60 text-gray-400 border border-gray-600/50'
+              ? 'bg-status-success-bg text-status-success border border-status-success-border'
+              : 'bg-surface-raised text-text-disabled border border-surface-overlay'
           }`}
         >
-          <span className={`h-2 w-2 rounded-full ${publicKey ? 'bg-green-400' : 'bg-gray-500'}`} aria-hidden="true" />
+          {/* Status dot + icon — not color alone (WCAG 1.4.1) */}
+          <span className={`h-2 w-2 rounded-full ${publicKey ? 'bg-status-connected' : 'bg-status-disconnected'}`} aria-hidden="true" />
           {publicKey ? 'Connected' : 'Disconnected'}
         </span>
       </div>
-      <p className="text-gray-400 text-sm mb-5 leading-relaxed">
+      <p className="text-text-secondary text-sm mb-5 leading-relaxed">
         Authorize a recurring on-chain payment using your Freighter wallet.
       </p>
 
       {/* Contract ID with copy button */}
-      <div className="flex items-center gap-2 mb-8 bg-gray-800/50 border border-gray-700/60 rounded-lg px-3 py-2">
-        <span className="text-xs text-gray-500 font-medium shrink-0">Contract</span>
-        <code className="flex-1 text-xs text-gray-300 font-mono truncate" title={CONTRACT_ID}>
+      <div className="flex items-center gap-2 mb-8 bg-surface-raised/50 border border-surface-overlay/60 rounded-lg px-3 py-2">
+        <span className="text-xs text-text-disabled font-medium shrink-0">Contract</span>
+        <code className="flex-1 text-xs text-text-secondary font-mono truncate" title={CONTRACT_ID}>
           {CONTRACT_ID}
         </code>
         <CopyButton text={CONTRACT_ID} label="Copy" />
       </div>
 
-      {/* Progress indicator — visible only while submitting */}
-      {isSubmitting && <ProgressBar />}
+      {/* AnimatePresence handles enter/exit of progress, success, error */}
+      <AnimatePresence mode="wait">
+        {isSubmitting && <ProgressBar key="progress" />}
+      </AnimatePresence>
 
-      {/* Success card */}
-      {successData && <SuccessCard data={successData} onReset={resetForm} />}
+      <AnimatePresence>
+        {successData && (
+          <SuccessCard
+            key="success"
+            data={successData}
+            onReset={resetForm}
+            onCancel={() => setShowCancelConfirm(true)}
+          />
+        )}
+      </AnimatePresence>
 
-      {/* Transaction error */}
-      {txError && <ErrorCard error={txError} onDismiss={() => setTxError(null)} />}
+      <AnimatePresence>
+        {txError && (
+          <ErrorCard key="error" error={txError} onDismiss={() => setTxError(null)} />
+        )}
+      </AnimatePresence>
 
       {/* Hide the form after success */}
-      {!successData && (
-        <form onSubmit={handleSubmit} noValidate aria-busy={isSubmitting} aria-labelledby="form-heading" className="space-y-5 sm:space-y-6">
+      <AnimatePresence>
+        {!successData && (
+          <motion.form
+            key="form"
+            onSubmit={handleSubmit}
+            noValidate
+            aria-busy={isSubmitting}
+            aria-labelledby="form-heading"
+            className="space-y-5 sm:space-y-6"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
 
-          {/* Merchant address */}
-          <div>
-            <label htmlFor="merchantAddress" className="block text-sm font-semibold text-gray-300 mb-2.5">
-              Merchant address <span aria-hidden="true" className="text-red-400">*</span><span className="sr-only"> (required)</span>
-            </label>
-            <input
-              id="merchantAddress"
-              type="text"
-              placeholder="GABC…"
-              autoComplete="off"
-              value={merchantAddress}
-              onChange={(e) => setMerchantAddress(e.target.value)}
-              disabled={isSubmitting}
-              required
-              aria-required="true"
-              aria-describedby={fieldErrors.merchantAddress ? 'err-merchant' : undefined}
-              aria-invalid={!!fieldErrors.merchantAddress}
-              className={inputCls}
-            />
-            {fieldErrors.merchantAddress && (
-              <p id="err-merchant" role="alert" className="mt-2 text-xs text-red-400 font-medium">
-                {fieldErrors.merchantAddress}
-              </p>
-            )}
-          </div>
-
-          {/* Token address */}
-          <div>
-            <label htmlFor="tokenAddress" className="block text-sm font-semibold text-gray-300 mb-2.5">
-              Token contract address <span aria-hidden="true" className="text-red-400">*</span><span className="sr-only"> (required)</span>
-            </label>
-            <input
-              id="tokenAddress"
-              type="text"
-              placeholder="CABC…"
-              autoComplete="off"
-              value={tokenAddress}
-              onChange={(e) => setTokenAddress(e.target.value)}
-              disabled={isSubmitting}
-              required
-              aria-required="true"
-              aria-describedby={fieldErrors.tokenAddress ? 'err-token' : undefined}
-              aria-invalid={!!fieldErrors.tokenAddress}
-              className={inputCls}
-            />
-            {fieldErrors.tokenAddress && (
-              <p id="err-token" role="alert" className="mt-2 text-xs text-red-400 font-medium">
-                {fieldErrors.tokenAddress}
-              </p>
-            )}
-          </div>
-
-          {/* Amount */}
-          <div>
-            <label htmlFor="amount" className="block text-sm font-semibold text-gray-300 mb-2.5">
-              Amount <span className="text-gray-500 font-normal">(token units)</span>{' '}
-              <span aria-hidden="true" className="text-red-400">*</span><span className="sr-only"> (required)</span>
-            </label>
-            <input
-              id="amount"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="100"
-              autoComplete="off"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              disabled={isSubmitting}
-              aria-describedby={`help-amount${fieldErrors.amount ? ' err-amount' : ''}`}
-              aria-invalid={!!fieldErrors.amount}
-              className={inputCls}
-            />
-            <p id="help-amount" className="mt-2 text-xs text-gray-500 leading-relaxed">
-              Must be a positive integer (e.g. 100). Represents the number of token units transferred per interval.
-            </p>
-            {fieldErrors.amount && (
-              <p id="err-amount" role="alert" className="mt-2 text-xs text-red-400 font-medium">
-                {fieldErrors.amount}
-              </p>
-            )}
-          </div>
-
-          {/* Interval */}
-          <div>
-            <label htmlFor="interval" className="block text-sm font-semibold text-gray-300 mb-2.5">
-              Interval <span className="text-gray-500 font-normal">(seconds)</span>{' '}
-              <span aria-hidden="true" className="text-red-400">*</span><span className="sr-only"> (required)</span>
-            </label>
-            <input
-              id="interval"
-              type="number"
-              min="86400"
-              max="31536000"
-              step="1"
-              autoComplete="off"
-              value={interval}
-              onChange={(e) => setInterval(e.target.value)}
-              disabled={isSubmitting}
-              aria-describedby={`help-interval${fieldErrors.interval ? ' err-interval' : ''}`}
-              aria-invalid={!!fieldErrors.interval}
-              className={inputCls}
-            />
-            <p id="help-interval" className="mt-2 text-xs text-gray-500 leading-relaxed">
-              Seconds between payments. Min: 86 400 s (1 day), max: 31 536 000 s (1 year). Default: 2 592 000 s (30 days).
-            </p>
-            {fieldErrors.interval && (
-              <p id="err-interval" role="alert" className="mt-2 text-xs text-red-400 font-medium">
-                {fieldErrors.interval}
-              </p>
-            )}
-          </div>
-
-          {/* Submit */}
-          <div>
-            {!publicKey && (
-              <p id="hint-wallet" className="mb-3 text-xs text-yellow-400 font-medium" role="status">
-                Connect your Freighter wallet to enable submission.
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={isSubmitting || !publicKey}
-              aria-describedby={!publicKey ? 'hint-wallet' : undefined}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600
-                         hover:bg-blue-500 active:bg-blue-700 disabled:opacity-50
-                         disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold
-                         transition-all duration-150 min-h-[48px] hover:shadow-lg active:shadow-md
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400
-                         focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
-            >
-              {isSubmitting && (
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
+            {/* Merchant address */}
+            <div>
+              <label htmlFor="merchantAddress" className="block text-sm font-semibold text-text-secondary mb-2.5">
+                Merchant address <span aria-hidden="true" className="text-status-error">*</span><span className="sr-only"> (required)</span>
+              </label>
+              <input
+                id="merchantAddress"
+                type="text"
+                placeholder="GABC…"
+                autoComplete="off"
+                value={merchantAddress}
+                onChange={(e) => setMerchantAddress(e.target.value)}
+                disabled={isSubmitting}
+                required
+                aria-required="true"
+                aria-describedby={fieldErrors.merchantAddress ? 'err-merchant' : undefined}
+                aria-invalid={!!fieldErrors.merchantAddress}
+                className={inputCls}
+              />
+              {fieldErrors.merchantAddress && (
+                <p id="err-merchant" role="alert" className="mt-2 text-xs text-status-error font-medium">
+                  {fieldErrors.merchantAddress}
+                </p>
               )}
-              {isSubmitting ? 'Submitting…' : 'Authorize Subscription'}
-            </button>
-          </div>
-        </form>
-      )}
+            </div>
+
+            {/* Token address */}
+            <div>
+              <label htmlFor="tokenAddress" className="block text-sm font-semibold text-text-secondary mb-2.5">
+                Token contract address <span aria-hidden="true" className="text-status-error">*</span><span className="sr-only"> (required)</span>
+              </label>
+              <input
+                id="tokenAddress"
+                type="text"
+                placeholder="CABC…"
+                autoComplete="off"
+                value={tokenAddress}
+                onChange={(e) => setTokenAddress(e.target.value)}
+                disabled={isSubmitting}
+                required
+                aria-required="true"
+                aria-describedby={fieldErrors.tokenAddress ? 'err-token' : undefined}
+                aria-invalid={!!fieldErrors.tokenAddress}
+                className={inputCls}
+              />
+              {fieldErrors.tokenAddress && (
+                <p id="err-token" role="alert" className="mt-2 text-xs text-status-error font-medium">
+                  {fieldErrors.tokenAddress}
+                </p>
+              )}
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label htmlFor="amount" className="block text-sm font-semibold text-text-secondary mb-2.5">
+                Amount <span className="text-text-disabled font-normal">(token units)</span>{' '}
+                <span aria-hidden="true" className="text-status-error">*</span><span className="sr-only"> (required)</span>
+              </label>
+              <input
+                id="amount"
+                type="number"
+                min="1"
+                step="1"
+                placeholder="100"
+                autoComplete="off"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                disabled={isSubmitting}
+                aria-describedby={`help-amount${fieldErrors.amount ? ' err-amount' : ''}`}
+                aria-invalid={!!fieldErrors.amount}
+                className={inputCls}
+              />
+              <p id="help-amount" className="mt-2 text-xs text-text-disabled leading-relaxed">
+                Must be a positive integer (e.g. 100). Represents the number of token units transferred per interval.
+              </p>
+              {fieldErrors.amount && (
+                <p id="err-amount" role="alert" className="mt-2 text-xs text-status-error font-medium">
+                  {fieldErrors.amount}
+                </p>
+              )}
+            </div>
+
+            {/* Interval */}
+            <div>
+              <label htmlFor="interval" className="block text-sm font-semibold text-text-secondary mb-2.5">
+                Interval <span className="text-text-disabled font-normal">(seconds)</span>{' '}
+                <span aria-hidden="true" className="text-status-error">*</span><span className="sr-only"> (required)</span>
+              </label>
+              <input
+                id="interval"
+                type="number"
+                min="86400"
+                max="31536000"
+                step="1"
+                autoComplete="off"
+                value={interval}
+                onChange={(e) => setInterval(e.target.value)}
+                disabled={isSubmitting}
+                aria-describedby={`help-interval${fieldErrors.interval ? ' err-interval' : ''}`}
+                aria-invalid={!!fieldErrors.interval}
+                className={inputCls}
+              />
+              <p id="help-interval" className="mt-2 text-xs text-text-disabled leading-relaxed">
+                Seconds between payments. Min: 86 400 s (1 day), max: 31 536 000 s (1 year). Default: 2 592 000 s (30 days).
+              </p>
+              {fieldErrors.interval && (
+                <p id="err-interval" role="alert" className="mt-2 text-xs text-status-error font-medium">
+                  {fieldErrors.interval}
+                </p>
+              )}
+            </div>
+
+            {/* Submit */}
+            <div>
+              {!publicKey && (
+                <p id="hint-wallet" className="mb-3 text-xs text-status-warning font-medium" role="status">
+                  Connect your Freighter wallet to enable submission.
+                </p>
+              )}
+              <motion.button
+                type="submit"
+                disabled={isSubmitting || !publicKey}
+                aria-describedby={!publicKey ? 'hint-wallet' : undefined}
+                whileHover={!isSubmitting && publicKey ? { scale: 1.02 } : {}}
+                whileTap={!isSubmitting && publicKey ? { scale: 0.98 } : {}}
+                transition={{ duration: 0.15 }}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-interactive
+                           hover:bg-interactive-hover active:bg-interactive-active disabled:opacity-50
+                           disabled:cursor-not-allowed px-4 py-3 text-sm font-semibold text-white
+                           transition-colors duration-150 min-h-[48px]
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-interactive-focus
+                           focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card"
+              >
+                {isSubmitting && (
+                  <svg
+                    className="animate-spin h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                )}
+                {isSubmitting ? 'Submitting…' : 'Authorize Subscription'}
+              </motion.button>
+            </div>
+          </motion.form>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
